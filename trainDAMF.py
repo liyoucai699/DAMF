@@ -298,7 +298,7 @@ def main(name, data_path, label_path, learning_rate, batch_size, start_epoch, en
             if fL_val_ssim < fl_threshold:
 
                 optimizer_fE.zero_grad()
-                fL_out, I_loss = backward_L_loss(fL, fN, enc_out, enc_outs, cl_img, criterion_MSE, optimizer_fL, retain_graph=True, fusion=False)
+                fL_out, I_loss = backward_L_loss(fL, fN, enc_out, enc_outs, cl_img, criterion_MSE, optimizer_fL, fusion=False)
 
                 progress = "\tEpoch: {}\tIter: {}\tI_loss: {}".format(epoch, idx, I_loss.item())
 
