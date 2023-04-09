@@ -35,9 +35,6 @@ def to_img(x):
     x = x.clamp(0, 1)
     return x
 
-def var_to_img(img):
-    return (img * 255).cpu().data.numpy().transpose(1, 2, 0).astype(np.uint8)
-
 
 
 def test(fE, fL, fN, fH, fU, dataloader, fusion):
@@ -57,7 +54,7 @@ def test(fE, fL, fN, fH, fU, dataloader, fusion):
         fU = to_img(fU_out)
 
         save_image(torch.stack([fU_out.squeeze().cpu().data]), 'D:/Data/4-6niqe/DAL/{}.jpg'.format(name[0]))
-
+        save_image(fL_out.cpu().data, './results/fL_out.png')
 
         fU_out = (fU_out * 255).squeeze(0).cpu().data.numpy().transpose(1, 2, 0).astype(np.uint8)
         cl_img = (cl_img * 255).squeeze(0).cpu().data.numpy().transpose(1, 2, 0).astype(np.uint8)

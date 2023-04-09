@@ -176,23 +176,24 @@ def write_to_log(log_file_path, status):
 @click.option('--end_epoch', default=200, help='Train till this epoch')
 @click.option('--num_classes', default=6, help='Number of water types')
 @click.option('--num_channels', default=3, help='Number of input image channels')
-@click.option('--train_size', default=3000, help='Size of the training dataset')
-@click.option('--test_size', default=500, help='Size of the testing dataset')
-@click.option('--val_size', default=500, help='Size of the validation dataset')
+@click.option('--train_size', default=10000, help='Size of the training dataset')
+@click.option('--test_size', default=1000, help='Size of the testing dataset')
+@click.option('--val_size', default=1000, help='Size of the validation dataset')
 @click.option('--fe_load_path', default=None, help='Load path for pretrained fE')
 @click.option('--fl_load_path', default=None, help='Load path for pretrained fL')
 @click.option('--fn_load_path', default=None, help='Load path for pretrained fN')
 @click.option('--fh_load_path', default=None, help='Load path for pretrained fH')
 @click.option('--fu_load_path', default=None, help='Load path for pretrained fU')
-@click.option('--fl_threshold', default=0.9,  help='Train fL till this threshold')
-@click.option('--fn_threshold', default=0.85, help='Train fN till this threshold')
+@click.option('--fl_threshold', default=0.9,  help='Train fL till this threshold without DAM')
+@click.option('--fl_threshold2', default=0.92,  help='Train fL till this threshold')
+@click.option('--fn_threshold', default=0.9, help='Train fN till this threshold')
 @click.option('--fh_threshold', default=0.9,  help='Train fH till this threshold')
 @click.option('--isfusion', default=True, help='Continue training from start_epoch')
 @click.option('--continue_train', default=True, help='Use adversarial loss during training or not')
 def main(name, data_path, label_path, learning_rate, batch_size, start_epoch, end_epoch, num_classes,
          num_channels,
          train_size, test_size, val_size, fe_load_path, fl_load_path, fn_load_path, fh_load_path, fu_load_path,
-         fl_threshold, fn_threshold, fh_threshold, continue_train, isfusion):
+         fl_threshold, fl_threshold2, fn_threshold, fh_threshold, continue_train, isfusion):
     fE_load_path = fe_load_path
     fL_load_path = fl_load_path
     fN_load_path = fn_load_path
@@ -335,7 +336,7 @@ def main(name, data_path, label_path, learning_rate, batch_size, start_epoch, en
                 N_loss = backward_N_loss(fN, enc_out, actual_target, criterion_CE, optimizer_fN)
                 progress = "\tEpoch: {}\tIter: {}\tN_loss: {}".format(epoch, idx, N_loss.item())
 
-            elif fL_val_ssim < fl_threshold:
+            elif fL_val_ssim < fl_threshold2:
                 if isfusion:
                     if fN_req_grad:
                         fN_req_grad = set_requires_grad(fN, requires_grad=False)

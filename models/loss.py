@@ -32,8 +32,8 @@ def _ssim(img1, img2, window, window_size, channel, size_average=True, loss_l = 
     sigma2_sq = F.conv2d(img2 * img2, window, padding=window_size // 2, groups=channel) - mu2_sq
     sigma12 = F.conv2d(img1 * img2, window, padding=window_size // 2, groups=channel) - mu1_mu2
 
-    C1 = 0.01
-    C2 = 0.01
+    C1 = 1e-5
+    C2 = 1e-5
     # LH
     if loss_l:
         ssim_map = 1 - (2 * mu1_mu2 + C1) / (mu1_sq + mu2_sq + C1)
