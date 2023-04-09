@@ -109,7 +109,7 @@ def backward_L_loss(fL, fN, enc_out, enc_outs, cl_img, criterion_MSE, optimizer_
     fL_out, _ = fL(enc_out, enc_outs, I_c, fusion)
     fL_out = to_img(fL_out)
     l_l = getsocre(cl_img.clone().detach()*255, fL_out.clone().detach()*255, loss_l=True)
-    L_loss = criterion_MSE(fL_out, cl_img) * 30 + color_loss(fL_out, cl_img) * 4 + l_l * 3
+    L_loss = criterion_MSE(fL_out, cl_img) * 30 + color_loss(fL_out, cl_img).requires_grad_(True) * 4 + l_l.requires_grad_(True) * 3
     optimizer_fL.zero_grad()
     L_loss.backward()
     optimizer_fL.step()
@@ -125,7 +125,7 @@ def backward_H_loss(fH, fL, fN, enc_out, enc_outs, cl_img, criterion_MSE, optimi
     fH_out = to_img(fH(fH_input, enc_outs))
     gt = to_img(cl_img-fL_out)
     l_h = getsocre(cl_img.clone().detach()*255, gt.clone().detach()*255, loss_l=False)
-    H_loss = criterion_MSE(fH_out, cl_img) * 40 + l_h * 6
+    H_loss = criterion_MSE(fH_out, cl_img) * 40 + l_h.requires_grad_(True) * 6
     optimizer_fH.zero_grad()
     H_loss.backward()
     optimizer_fH.step()
@@ -176,9 +176,9 @@ def write_to_log(log_file_path, status):
 @click.option('--end_epoch', default=200, help='Train till this epoch')
 @click.option('--num_classes', default=6, help='Number of water types')
 @click.option('--num_channels', default=3, help='Number of input image channels')
-@click.option('--train_size', default=10, help='Size of the training dataset')
-@click.option('--test_size', default=10, help='Size of the testing dataset')
-@click.option('--val_size', default=10, help='Size of the validation dataset')
+@click.option('--train_size', default=3000, help='Size of the training dataset')
+@click.option('--test_size', default=500, help='Size of the testing dataset')
+@click.option('--val_size', default=500, help='Size of the validation dataset')
 @click.option('--fe_load_path', default=None, help='Load path for pretrained fE')
 @click.option('--fl_load_path', default=None, help='Load path for pretrained fL')
 @click.option('--fn_load_path', default=None, help='Load path for pretrained fN')
@@ -286,7 +286,39 @@ def main(name, data_path, label_path, learning_rate, batch_size, start_epoch, en
         fN_val_acc = -1
     fL_val_ssim_best, fU_val_ssim_best = fL_val_ssim, fU_val_ssim
 
-    for epoch in range(start_epoch, end_epoch):
+
+
+    while fL_val_ssim < fl_threshold and continue_train:
+        epoch = start_epoch
+
+        for idx, data in tqdm(enumerate(train_dataloader)):
+            uw_img, cl_img, water_type, _ = data
+            uw_img = Variable(uw_img).cuda()
+            cl_img = Variable(cl_img, requires_grad=False).cuda()
+
+            enc_out, enc_outs = fE(uw_img)
+            optimizer_fE.zero_grad()
+            optimizer_fE.zero_grad()
+            fL_out, I_loss = backward_L_loss(fL, fN, enc_out, enc_outs, cl_img, criterion_MSE, optimizer_fL,
+                                             fusion=False)
+
+            progress = "\tEpoch: {}\tIter: {}\tI_loss: {}".format(epoch, idx, I_loss.item())
+
+            optimizer_fE.step()
+
+            if idx % 50 == 0:
+                save_image(uw_img.cpu().data, './results/uw_img.png')
+                save_image(fL_out.cpu().data, './results/fL_out.png')
+                print(progress)
+                write_to_log(log_file_path, progress)
+            fL_val_ssim, fH_val_ssim, fU_val_ssim, fN_val_acc = compute_val_metrics(fE, fL, fN, fH, fU, val_dataloader,
+                                                                                    isfusion)
+            status = 'Avg fL val SSIM: {}, Avg fH val SSIM: {},Avg fU val SSIM: {},Avg fN val acc: {}\n'.format(
+                fL_val_ssim, fH_val_ssim, fU_val_ssim, fN_val_acc)
+            print(status)
+            write_to_log(log_file_path, status)
+
+    for epoch in range(start_epoch, start_epoch+end_epoch):
         for idx, data in tqdm(enumerate(train_dataloader)):
             uw_img, cl_img, water_type, _ = data
             uw_img = Variable(uw_img).cuda()
@@ -295,20 +327,7 @@ def main(name, data_path, label_path, learning_rate, batch_size, start_epoch, en
 
             enc_out, enc_outs = fE(uw_img)
 
-            if fL_val_ssim < fl_threshold:
-
-                optimizer_fE.zero_grad()
-                fL_out, I_loss = backward_L_loss(fL, fN, enc_out, enc_outs, cl_img, criterion_MSE, optimizer_fL, fusion=False)
-
-                progress = "\tEpoch: {}\tIter: {}\tI_loss: {}".format(epoch, idx, I_loss.item())
-
-                optimizer_fE.step()
-
-                if idx % 50 == 0:
-                    save_image(uw_img.cpu().data, './results/uw_img.png')
-                    save_image(fL_out.cpu().data, './results/fL_out.png')
-
-            elif fN_val_acc < fn_threshold:
+            if fN_val_acc < fn_threshold:
 
                 if not fN_req_grad:
                     fN_req_grad = set_requires_grad(fN, requires_grad=True)
@@ -368,7 +387,10 @@ def main(name, data_path, label_path, learning_rate, batch_size, start_epoch, en
             write_to_log(log_file_path, status)
 
         fL_val_ssim, fH_val_ssim, fU_val_ssim, fN_val_acc = compute_val_metrics(fE, fL, fN, fH, fU, val_dataloader, isfusion)
-
+        status = 'Avg fL val SSIM: {}, Avg fH val SSIM: {},Avg fU val SSIM: {},Avg fN val acc: {}\n'.format(
+            fL_val_ssim, fH_val_ssim, fU_val_ssim, fN_val_acc)
+        print(status)
+        write_to_log(log_file_path, status)
 
 
 if __name__ == "__main__":
