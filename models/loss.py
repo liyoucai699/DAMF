@@ -6,6 +6,7 @@ import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
 from math import exp
+from torch import nn
 
 
 def gaussian(window_size, sigma):
@@ -73,31 +74,27 @@ class SSIM(torch.nn.Module):
 
         return _ssim(img1, img2, window, self.window_size, channel, self.size_average, self.loss_l)
 
+class getscore(nn.Module):
+    def __init__(self):
+        super(getscore, self).__init__()
+    def forward(self,img1, img2, window_size=11, size_average=True, loss_l=True):
+        (_, channel, _, _) = img1.size()
+        window = create_window(window_size, channel)
+        if img1.is_cuda:
+            window = window.cuda(img1.get_device())
+        window = window.type_as(img1)
+        return _ssim(img1, img2, window, window_size, channel, size_average, loss_l=loss_l)
 
-def getsocre(img1, img2, window_size=11, size_average=True, loss_l=True):
-    (_, channel, _, _) = img1.size()
-    window = create_window(window_size, channel)
-
-    if img1.is_cuda:
-        window = window.cuda(img1.get_device())
-    window = window.type_as(img1)
-
-    return _ssim(img1, img2, window, window_size, channel, size_average, loss_l=loss_l)
-
-def color_loss(uw_img, cl_img):
-    # def __init__(self):
-    #     super(color_loss, self).__init__()
-    #
-    # def forward(self, uw_img, cl_img):
-    b, c, h, w = uw_img.shape
-
-    mean_rgb_uw = torch.mean(uw_img, [2, 3], keepdim=True)
-    mean_rgb_cl = torch.mean(cl_img, [2, 3], keepdim=True)
-    uw_r, uw_g, uw_b = torch.split(mean_rgb_uw, 1, dim=1)
-    cl_r, cl_g, cl_b = torch.split(mean_rgb_cl, 1, dim=1)
-    d_r = torch.pow(uw_r - cl_r, 2)
-    d_g = torch.pow(uw_g - cl_g, 2)
-    d_b = torch.pow(uw_b - cl_b, 2)
-    d = torch.pow(torch.pow(d_r, 2) * 2 + torch.pow(d_g, 2) * 5 + torch.pow(d_b, 2) * 3, 0.5)
-
-    return d.sum().item()
+class color_loss(nn.Module):
+    def __init__(self):
+        super(color_loss, self).__init__()
+    def forward(self, uw_img, cl_img):
+        mean_rgb_uw = torch.mean(uw_img, [2, 3], keepdim=True)
+        mean_rgb_cl = torch.mean(cl_img, [2, 3], keepdim=True)
+        uw_r, uw_g, uw_b = torch.split(mean_rgb_uw, 1, dim=1)
+        cl_r, cl_g, cl_b = torch.split(mean_rgb_cl, 1, dim=1)
+        d_r = torch.pow(uw_r - cl_r, 2)
+        d_g = torch.pow(uw_g - cl_g, 2)
+        d_b = torch.pow(uw_b - cl_b, 2)
+        d = torch.pow(torch.pow(d_r, 2) * 2 + torch.pow(d_g, 2) * 5 + torch.pow(d_b, 2) * 3, 0.5)
+        return d.sum()

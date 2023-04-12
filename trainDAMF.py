@@ -105,11 +105,13 @@ def backward_L_loss(fL, fN, enc_out, enc_outs, cl_img, criterion_MSE, optimizer_
     """
         Backpropagate the reconstruction loss
     """
+    Color_loss = color_loss().cuda()
+    Getsocre = getscore().cuda()
     I, I_c = fN(enc_out)
     fL_out, _ = fL(enc_out, enc_outs, I_c, fusion)
     fL_out = to_img(fL_out)
-    l_l = getsocre(cl_img.clone().detach()*255, fL_out.clone().detach()*255, loss_l=True)
-    L_loss = criterion_MSE(fL_out, cl_img) * 30 + color_loss(fL_out, cl_img).requires_grad_(True) * 4 + l_l.requires_grad_(True) * 3
+    l_l = Getsocre(cl_img.clone().detach()*255, fL_out.clone().detach()*255, loss_l=True)
+    L_loss = criterion_MSE(fL_out, cl_img) * 30 + Color_loss(fL_out, cl_img) * 4 + l_l * 3
     optimizer_fL.zero_grad()
     L_loss.backward()
     optimizer_fL.step()
@@ -120,12 +122,13 @@ def backward_H_loss(fH, fL, fN, enc_out, enc_outs, cl_img, criterion_MSE, optimi
     """
         Backpropagate the reconstruction loss
     """
+    Getsocre = getscore().cuda()
     I, I_c = fN(enc_out)
     fL_out, fH_input = fL(enc_out, enc_outs, I_c, fusion)
     fH_out = to_img(fH(fH_input, enc_outs))
     gt = to_img(cl_img-fL_out)
-    l_h = getsocre(cl_img.clone().detach()*255, gt.clone().detach()*255, loss_l=False)
-    H_loss = criterion_MSE(fH_out, cl_img) * 40 + l_h.requires_grad_(True) * 6
+    l_h = Getsocre(cl_img.clone().detach()*255, gt.clone().detach()*255, loss_l=False)
+    H_loss = criterion_MSE(fH_out, cl_img) * 40 + l_h * 6
     optimizer_fH.zero_grad()
     H_loss.backward()
     optimizer_fH.step()
